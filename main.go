@@ -1,70 +1,38 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/amarnathcjd/gogram/telegram"
+	"github.com/caarlos0/env"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"os"
-	"strings"
 )
 
-var (
-	appID    int64
-	appHash  string
-	botToken string
-)
-
-func GetToken(configPath string) error {
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	viper.SetDefault("LOGLEVEL", "debug")
-
-	if configPath != "" {
-		log.Infof("Parsing config: %s", configPath)
-		viper.SetConfigFile(configPath)
-		err := viper.ReadInConfig()
-		if err != nil {
-			log.Warnf("Unable to read config file: %s", err)
-		}
-	} else {
-		log.Warnf("Config file is not specified.")
-	}
-
-	logLevelString := viper.GetString("loglevel")
-	logLevel, err := log.ParseLevel(logLevelString)
-	if err != nil {
-		log.Errorf("Unable to parse loglevel: %s", logLevelString)
-	}
-
-	log.SetLevel(logLevel)
-
-	botToken = viper.GetString("BOT_TOKEN")
-	if botToken == "" {
-		log.Errorf("Bot token error")
-		os.Exit(2)
-	}
-	appID = viper.GetInt64("APP_ID")
-	appHash = viper.GetString("APP_HASH")
-
-	return nil
+type config struct {
+	AppID    int64  `env:"APP_ID"`
+	AppHash  string `env:"APP_HASH"`
+	BotToken string `env:"BOT_TOKEN"`
 }
 
 func main() {
 
-	err := GetToken(".env")
+	var cfg config
+	err := env.Parse(&cfg)
+
 	if err != nil {
-		log.Panicf("GetEnv error")
+		log.Fatal(err)
 	}
+
+	fmt.Println(cfg)
 
 	// create a new client object
 	client, _ := telegram.NewClient(telegram.ClientConfig{
-		AppID:    int32(appID),
-		AppHash:  appHash,
+		AppID:    int32(cfg.AppID),
+		AppHash:  cfg.AppHash,
 		LogLevel: telegram.LogInfo,
 	})
 
-	client.LoginBot(botToken)
+	client.LoginBot(cfg.BotToken)
 
 	client.On(telegram.OnMessage, func(message *telegram.NewMessage) error {
 		message.Respond(message)
@@ -78,6 +46,6 @@ func main() {
 		return nil
 	})
 
-	// lock the main routine
+	// // lock the main routine
 	client.Idle()
 }

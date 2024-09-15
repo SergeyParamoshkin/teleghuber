@@ -1,51 +1,49 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/amarnathcjd/gogram/telegram"
 	"github.com/caarlos0/env"
 	log "github.com/sirupsen/logrus"
 )
 
 type config struct {
-	AppID    int64  `env:"APP_ID"`
-	AppHash  string `env:"APP_HASH"`
-	BotToken string `env:"BOT_TOKEN"`
+	AppID    int64  `env:"TELEGRAM_APP_ID"`
+	AppHash  string `env:"TELEGRAM_APP_HASH"`
+	BotToken string `env:"TELEGRAM_BOT_TOKEN"`
 }
 
 func main() {
-
-	var cfg config
-	err := env.Parse(&cfg)
-
-	if err != nil {
-		log.Fatal(err)
+	var config config
+	if err := env.Parse(&config); err != nil {
+		log.WithError(err).Fatal("Failed to parse environment variables")
 	}
 
-	fmt.Println(cfg)
-
-	// create a new client object
-	client, _ := telegram.NewClient(telegram.ClientConfig{
-		AppID:    int32(cfg.AppID),
-		AppHash:  cfg.AppHash,
+	client, err := telegram.NewClient(telegram.ClientConfig{
+		AppID:    int32(config.AppID),
+		AppHash:  config.AppHash,
 		LogLevel: telegram.LogInfo,
 	})
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create Telegram client")
+	}
 
-	client.LoginBot(cfg.BotToken)
+	client.LoginBot(config.BotToken)
 
-	client.On(telegram.OnMessage, func(message *telegram.NewMessage) error {
-		message.Respond(message)
-		log.Infof(message.Text())
-		return nil
-	},
+	client.On(telegram.OnMessage, messageHandler,
 		telegram.FilterPrivate)
 
-	client.On("message:/start", func(message *telegram.NewMessage) error {
-		message.Reply("Hello, I am a bot!")
-		return nil
-	})
+	client.On("message:/start", startHandler)
 
-	// // lock the main routine
 	client.Idle()
+}
+
+func messageHandler(message *telegram.NewMessage) error {
+	message.Respond(message.Text())
+	log.Infof(message.Text())
+	return nil
+}
+
+func startHandler(message *telegram.NewMessage) error {
+	message.Reply("Hello, I am a bot!")
+	return nil
 }
